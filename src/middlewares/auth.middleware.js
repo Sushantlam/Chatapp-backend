@@ -7,8 +7,9 @@ const jwt = require("jsonwebtoken");
 const verifyJWT = asyncResponse(async (req, _, next) => {
   try {
     const token =
-      (await req.cookies.token) ||
-      req?.header("Authorization")?.replace("Bearer", "");
+      req.cookies?.accesstoken ||
+      req.header("Authorization")?.replace("Bearer ", "");
+
     if (!token) {
       throw new APIERROR(401, "Unauthorized Access");
     }

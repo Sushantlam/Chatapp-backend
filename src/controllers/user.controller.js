@@ -4,7 +4,9 @@ const ApiResponse = require("../utils/apiResponse");
 const asyncResponse = require("../utils/asyncResponse");
 
 const registerUser = asyncResponse(async (req, res) => {
-  const { userName, email, password, avatar } = req.body;
+  console.log(req.body);
+  
+  const { userName, email, password } = req.body;
 
   if ([userName, email, password].some((field) => field?.trim === "")) {
     throw new APIERROR(400, "All fields are required");
@@ -17,7 +19,7 @@ const registerUser = asyncResponse(async (req, res) => {
     email,
     userName,
     password,
-    avatar: avatar.url,
+    avatar: req.body?.avatar?.url,
   });
 
   const createdUser = await User.findById(user._id).select(
@@ -34,8 +36,12 @@ const registerUser = asyncResponse(async (req, res) => {
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
+  
+    
     const user = await User.findById(userId);
+    
     const accessToken = user.generateAccessToken();
+    
     const refreshToken = user.generateRefreshToken();
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
@@ -86,6 +92,7 @@ const loginUser = asyncResponse(async (req, res) => {
 
 
 const logoutUser = asyncResponse(async(req,res)=>{
+  
   await User.findByIdAndUpdate(req.user._id,
     {
     
