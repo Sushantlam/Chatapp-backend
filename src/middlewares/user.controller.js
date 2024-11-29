@@ -32,4 +32,56 @@ const registerUser = asyncResponse(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
 
-module.exports = { registerUser };
+const generateAccessAndRefreshToken = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new APIERROR(500, "Something went wrong generating token");
+  }
+};
+
+const loginUser = asyncResponse(async (req, res) => {
+  const { email, password } = req.body;
+  if (!email && !password) {
+    throw new APIERROR(400, "All credential is required");
+  }
+  const isUser = await User.findOne({ email });
+  if (!isUser) throw new APIERROR(400, "User is not registered");
+  const isPassword = await isUser.isPasswordCorrect(password);
+  if (!isPassword) throw new APIERROR(400, "Password wrong");
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    isUser._id
+  );
+
+  const loggedIn = await User.findById(isUser._id).select(
+    "-password -refreshToken"
+  );
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          user: loggedIn,
+          accessToken,
+          refreshToken,
+        },
+        "User logged In Successfully"
+      )
+    );
+});
+
+module.exports = { registerUser, loginUser };
