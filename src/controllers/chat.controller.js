@@ -90,7 +90,6 @@ const fetchChatOfUser = asyncResponse(async (req, res) => {
 const createGroupChat = asyncResponse(async (req,res)=>{
   var users = req.body.users
   users = [...users, req.user._id.toString()]
-  console.log("users", req.user);
   
   if(users.length<2){
     throw new APIERROR(401, "User should be more than 2");
