@@ -78,20 +78,20 @@ const fetchChatOfUser = asyncResponse(async (req, res) => {
     const chat = await Chat.find({ users: { $elemMatch: { $eq: user } } })
       .populate("users", "-password")
       .populate("latestMessage")
-      .sort({ updatedAt: -1 })
+      .sort({ updatedAt: -1 });
     return res.status(201).json(new ApiResponse(201, chat, "Fetched all chat"));
   } catch (error) {
     throw new APIERROR(401, "Error fetching chat");
   }
 });
 
-//creating group chat 
+//creating group chat
 
-const createGroupChat = asyncResponse(async (req,res)=>{
-  var users = req.body.users
-  users = [...users, req.user._id.toString()]
-  
-  if(users.length<2){
+const createGroupChat = asyncResponse(async (req, res) => {
+  var users = req.body.users;
+  users = [...users, req.user._id.toString()];
+
+  if (users.length < 2) {
     throw new APIERROR(401, "User should be more than 2");
   }
 
@@ -106,13 +106,94 @@ const createGroupChat = asyncResponse(async (req,res)=>{
     const fullGroupChat = await Chat.findOne({ _id: groupChat._id })
       .populate("users", "-password")
       .populate("groupAdmin", "-password");
-      return res.status(201).json(new ApiResponse(200, fullGroupChat, "Group chat created"));
+    return res
+      .status(201)
+      .json(new ApiResponse(200, fullGroupChat, "Group chat created"));
   } catch (error) {
     res.status(400);
     throw new APIERROR(401, "Error creating group");
   }
+});
 
+const changeChatName = asyncResponse(async (req, res) => {
+  const { chatId, chatName } = req.body;
 
-})
+  if (!chatId) {
+    throw new APIERROR(401, "Chat ID is not found");
+  }
 
-module.exports = { accessChat, fetchChatOfUser, createGroupChat };
+  try {
+    const updatedChat = await Chat.findByIdAndUpdate(
+      chatId,
+      { chatName },
+      { new: true }
+    );
+
+    if (!updatedChat) {
+      throw new APIERROR(401, "Chat with this ID not found");
+    }
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, updatedChat, "Chat name changed successfully")
+      );
+  } catch (error) {
+    throw new APIERROR(501, "Error updating chatname");
+  }
+});
+
+const addUserToGroup = asyncResponse(async (req, res) => {
+  const { userId, chatId } = req.body;
+
+  try {
+    const newMember = await User.findById(userId);
+    if (!newMember) {
+      throw new APIERROR(401, "User not found");
+    }
+
+    const isUserInGroup = await Chat.findOne({
+      _id: chatId,
+      users: { $in: [userId] },
+    });
+
+    if (isUserInGroup) {
+      throw new APIERROR(401, "User is already in the group");
+    }
+
+    console.log("Adding user to group...");
+    const updatedChat = await Chat.findByIdAndUpdate(
+      chatId,
+      {
+        $push: { users: userId },
+      },
+      { new: true }
+    ).populate("users", "-password");
+
+    if (!updatedChat) {
+      throw new APIERROR(401, "Failed to update chat");
+    }
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, updatedChat, "User added successfully"));
+  } catch (error) {
+    console.error("Error adding user:", error);
+    if (error instanceof APIERROR) {
+      return res
+        .status(error.statusCode)
+        .json({ success: false, message: error.message });
+    } else {
+      return res
+        .status(501)
+        .json({ success: false, message: "Internal Server Error" });
+    }
+  }
+});
+
+module.exports = {
+  accessChat,
+  fetchChatOfUser,
+  createGroupChat,
+  changeChatName,
+  addUserToGroup,
+};
